@@ -23,7 +23,6 @@ ENV sa_password="_" \
 SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
 
 # make install files accessible
-COPY start.ps1 /
 WORKDIR /
 
 RUN $setup = Join-Path $env:TEMP 'sqlsetup.exe'; \
@@ -31,16 +30,21 @@ RUN $setup = Join-Path $env:TEMP 'sqlsetup.exe'; \
         $process = Start-Process -Wait -FilePath $setup -ArgumentList @('/Quiet', '/Action=Download', '/Language=en-US', '/MediaType=CAB', '/MediaPath=c:\sqlmedia') -PassThru; \
         Start-Process -Wait -FilePath 'c:\sqlmedia\SQLServer2019-DEV-x64-ENU.exe' -ArgumentList @('/qs', '/x:c:\setup'); \
         Remove-Item -Path ('c:\sqlmedia') -Recurse -Force
-RUN \setup\setup.exe /q /ACTION=Install /INSTANCENAME=MSSQLSERVER /FEATURES=SQLEngine,Tools /UPDATEENABLED=0 /SQLSVCACCOUNT='NT AUTHORITY\NETWORK SERVICE' /SQLSYSADMINACCOUNTS='BUILTIN\ADMINISTRATORS' /TCPENABLED=1 /NPENABLED=0 /IACCEPTSQLSERVERLICENSETERMS; \
+RUN \setup\setup.exe /q /ACTION=Install /INSTANCENAME=MSSQLSERVER /FEATURES=SQLEngine /UPDATEENABLED=0 /SQLSVCACCOUNT='NT AUTHORITY\NETWORK SERVICE' /SQLSYSADMINACCOUNTS='BUILTIN\ADMINISTRATORS' /TCPENABLED=1 /NPENABLED=0 /IACCEPTSQLSERVERLICENSETERMS; \
+        \setup\setup.exe /q /ACTION=Install /FEATURES=Tools /UPDATEENABLED=0 /IACCEPTSQLSERVERLICENSETERMS; \
         Remove-Item -Path ('c:\setup') -Recurse -Force
 
-RUN Stop-Service MSSQLSERVER ; \
+RUN Stop-Service MSSQLSERVER -Verbose; \
         Set-ItemProperty -Path 'HKLM:\software\microsoft\microsoft sql server\mssql15.MSSQLSERVER\mssqlserver\supersocketnetlib\tcp\ipall' -Name tcpdynamicports -Value '' ; \
         Set-ItemProperty -Path 'HKLM:\software\microsoft\microsoft sql server\mssql15.MSSQLSERVER\mssqlserver\supersocketnetlib\tcp\ipall' -Name tcpport -Value 1433 ; \
         Set-ItemProperty -Path 'HKLM:\software\microsoft\microsoft sql server\mssql15.MSSQLSERVER\mssqlserver\' -Name LoginMode -Value 2 ;
 
-RUN Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
-RUN choco upgrade ssms sqlpackage -y
+RUN $setup = Join-Path $env:TEMP 'dacframework.exe'; \
+        Invoke-WebRequest -Uri 'https://go.microsoft.com/fwlink/?linkid=2164920' -OutFile $setup -UseBasicParsing; \
+        $process = Start-Process -FilePath 'msiexec' -ArgumentList @('/i', $setup, '/quiet', '/passive') -Wait -PassThru; \
+        Write-Host $process.ExitCode;
+
+COPY start.ps1 /
 
 HEALTHCHECK CMD [ "sqlcmd", "-Q", "select 1" ]
 
