@@ -29,10 +29,9 @@ RUN $setup = Join-Path $env:TEMP 'sqlsetup.exe'; \
         Invoke-WebRequest -Uri 'https://go.microsoft.com/fwlink/?linkid=866662' -OutFile $setup -UseBasicParsing; \
         $process = Start-Process -Wait -FilePath $setup -ArgumentList @('/Quiet', '/Action=Download', '/Language=en-US', '/MediaType=CAB', '/MediaPath=c:\sqlmedia') -PassThru; \
         Start-Process -Wait -FilePath 'c:\sqlmedia\SQLServer2019-DEV-x64-ENU.exe' -ArgumentList @('/qs', '/x:c:\setup'); \
-        Remove-Item -Path ('c:\sqlmedia') -Recurse -Force
-RUN \setup\setup.exe /q /ACTION=Install /INSTANCENAME=MSSQLSERVER /FEATURES=SQLEngine /UPDATEENABLED=0 /SQLSVCACCOUNT='NT AUTHORITY\NETWORK SERVICE' /SQLSYSADMINACCOUNTS='BUILTIN\ADMINISTRATORS' /TCPENABLED=1 /NPENABLED=0 /IACCEPTSQLSERVERLICENSETERMS; \
-        \setup\setup.exe /q /ACTION=Install /FEATURES=Tools /UPDATEENABLED=0 /IACCEPTSQLSERVERLICENSETERMS; \
-        Remove-Item -Path ('c:\setup') -Recurse -Force
+        Remove-Item -Path @('c:\sqlmedia', $setup) -Recurse -Force; \
+        \setup\setup.exe /q /ACTION=Install /INSTANCENAME=MSSQLSERVER /FEATURES=SQLEngine /UPDATEENABLED=0 /SQLSVCACCOUNT='NT AUTHORITY\NETWORK SERVICE' /SQLSYSADMINACCOUNTS='BUILTIN\ADMINISTRATORS' /TCPENABLED=1 /NPENABLED=0 /IACCEPTSQLSERVERLICENSETERMS; \
+        Remove-Item -Path @('c:\setup') -Recurse -Force
 
 RUN Stop-Service MSSQLSERVER -Verbose; \
         Set-ItemProperty -Path 'HKLM:\software\microsoft\microsoft sql server\mssql15.MSSQLSERVER\mssqlserver\supersocketnetlib\tcp\ipall' -Name tcpdynamicports -Value '' ; \
@@ -42,7 +41,8 @@ RUN Stop-Service MSSQLSERVER -Verbose; \
 RUN $setup = Join-Path $env:TEMP 'dacframework.exe'; \
         Invoke-WebRequest -Uri 'https://go.microsoft.com/fwlink/?linkid=2164920' -OutFile $setup -UseBasicParsing; \
         $process = Start-Process -FilePath 'msiexec' -ArgumentList @('/i', $setup, '/quiet', '/passive') -Wait -PassThru; \
-        Write-Host $process.ExitCode;
+        Write-Host $process.ExitCode; \
+        Remove-Item -Path @($setup) -Recurse -Force
 
 COPY start.ps1 /
 
